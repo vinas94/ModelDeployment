@@ -17,7 +17,7 @@ services:
     ports:
     - 3308:3306
     volumes:
-    - drybeans-vol:/var/lib/mysql
+    - drybeans-vol:/var/lib/minesql
     environment:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: drybeans_db

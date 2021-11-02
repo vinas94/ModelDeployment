@@ -1,0 +1,28 @@
+version: '3.7'
+
+services:
+  app:
+    image: vinas94/drybeans-img
+    ports:
+    - 5000:5000
+    working_dir: /app
+    volumes:
+    - ./:/app
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: secret
+      MYSQL_DB: drybeans_db
+
+  mysql:
+    image: mysql:5.7
+    ports:
+    - 3308:3306
+    volumes:
+    - drybeans-vol:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: drybeans_db
+
+volumes:
+  drybeans-vol:

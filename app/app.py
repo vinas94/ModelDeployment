@@ -5,13 +5,12 @@ import sklearn
 from flask import Flask, request
 from mysql_con import push_to_sql
 
-
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
     """ Main page of the app. """
-    return "Hello! Let me classify your beans!"
+    return "Hello! Let me classify your beanss!"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -26,6 +25,9 @@ def predict():
     return {'predictions': json.dumps(predictions.tolist())}
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=5000)
 
+if __name__ == "__main__":
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=5000)

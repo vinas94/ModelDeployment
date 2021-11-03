@@ -17,6 +17,7 @@ base = declarative_base()
 session = sessionmaker(db)()
 
 # Create a table for storing the predictions if it doesn't exist yet
+# These environment variables will be passed to the system during container startup
 db.execute('''
     CREATE TABLE IF NOT EXISTS drybeans (
 	id INT AUTO_INCREMENT PRIMARY KEY,

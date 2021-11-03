@@ -118,7 +118,7 @@ The second access point is the `'/predict'` route which expects a json payload c
 
 ### 3. Connecting to a database
 
-kkkk
+The Flask app defined earlier called a `push_to_sql` function which was imported from a separate script. That script is defined below. Its purpose is to establish a connection with an existing instance of a MySQL database.
 
 ```
 import os
@@ -129,6 +129,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 # Create the MySQL connection string
+# These environment variables will be passed to the system during container startup
 db_string = f"mysql://{os.environ['MYSQL_USER']}: \
                       {os.environ['MYSQL_PASSWORD']}@ \
                       {os.environ['MYSQL_HOST']}:3306/ \
@@ -164,6 +165,76 @@ def push_to_sql(array):
     print('Data upload complete!')
 ```
 
+
 <br>
 
 ### 4. Creating Docker containers
+
+
+```
+pipreqs .
+```
+
+```
+# syntax=docker/dockerfile:1
+
+FROM python:3.8-slim-buster
+WORKDIR /app
+COPY requirements.txt .
+RUN apt-get update
+RUN apt-get install -y default-libmysqlclient-dev gcc
+RUN pip3 install mysqlclient==2.0.3
+RUN pip3 install -r requirements.txt
+COPY . .
+CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
+```
+
+```
+docker build -t vinas94/drybeans-img .
+```
+
+
+<br>
+
+### 5. Defining a Docker-Compose file
+
+
+```
+version: '3.7'
+
+services:
+  app:
+    image: vinas94/drybeans-img
+    ports:
+    - 5000:5000
+    working_dir: /app
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: secret
+      MYSQL_DB: drybeans_db
+
+  mysql:
+    image: mysql:5.7
+    ports:
+    - 3308:3306
+    volumes:
+    - drybeans-vol:/var/lib/minesql
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: drybeans_db
+
+volumes:
+  drybeans-vol:
+```
+
+
+<br>
+
+### 6. Launching the app
+
+
+```
+docker-compose up
+```
+

@@ -10,12 +10,12 @@ app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    """ Main page of the app. """
+    ''' Main page of the app '''
     return render_template('home.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """ Return JSON serializable output from the model """
+    ''' Return JSON serializable output from the model '''
 
     # Capture the payload
     payload = request.json
@@ -32,7 +32,6 @@ def predict():
     push_to_sql(predictions)
 
     return {'predictions': json.dumps(predictions.tolist())}
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

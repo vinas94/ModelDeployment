@@ -1,12 +1,15 @@
 import os
-from sqlalchemy import create_engine  
+from sqlalchemy import create_engine
 from sqlalchemy import Column, String, Integer, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base  
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 # Create the MySQL connection string
-db_string = f"mysql://{os.environ['MYSQL_USER']}:{os.environ['MYSQL_PASSWORD']}@{os.environ['MYSQL_HOST']}:3306/{os.environ['MYSQL_DB']}"
+db_string = f"mysql://{os.environ['MYSQL_USER']}: \
+                      {os.environ['MYSQL_PASSWORD']}@ \
+                      {os.environ['MYSQL_HOST']}:3306/ \
+                      {os.environ['MYSQL_DB']}"
 
 # Establish the connection
 db = create_engine(db_string)
@@ -31,7 +34,7 @@ class DryBeansSQL(base):
 def push_to_sql(array):
     '''  Pushing new data to storage '''
     for i in array:
-        drybean = DryBeansSQL(name = i)
+        drybean = DryBeansSQL(name=i)
         session.add(drybean) 
         
     session.commit()

@@ -4,13 +4,12 @@
 <img src="./flask_docker_k8.png">
 
 <br>
-<br>
 
 ## Contents
 
 The project is split into two key parts - (1) local development which sets up the model and exposes an API on a local network and (2) deployment of said model on GKE.
 
-**This is what will be covered in order of occurance:**
+**The following will be covered in order of occurance:**
 - Creating a simple classification model with scikit-learn
 - Creating a Flask app with the said model
 - Connecting a MySQL database to store the results
@@ -68,7 +67,56 @@ with open('./app/DryBeanSVM', 'wb') as file:
 
 ### 2. Creating a Flask app
 
+The newly constructed model now needs to be wrapped within an app so that it could be simply used via an API call. Flask makes this straighforward. Below is an implementation for a DryBeans classification app.
 
+```
+import json
+import pickle
+import numpy as np
+import sklearn
+from flask import Flask, request, render_template
+from mysql_con import push_to_sql
+
+# Create a Flask app object
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    """ Main page of the app. """
+    return render_template('home.html')
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """ Return JSON serializable output from the model """
+
+    # Capture the payload
+    payload = request.json
+    X = np.array(json.loads(payload['data']))
+
+    # Load the classifier
+    with open('DryBeanSVM', 'rb') as file:
+        classifier = pickle.load(file)
+
+    # Get the predictions
+    predictions = classifier.predict(X)
+
+    # Store them in the DB
+    push_to_sql(predictions)
+
+    return {'predictions': json.dumps(predictions.tolist())}
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+It has two access points. One is a root `'/'` access which leads to a home page that returns a static output defined by `/app/templates/home.html`. For the sake of simplicity, the `hello()` function could be changed to return any string and the functionality of the app would stay the same.
+
+The second access point is the `'/predict'` route which expects a json payload containing all 16 features of one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a json string as well as stored in a database (more on this in the next section).
+
+<br>
+
+### 3. Connecting to a database
 
 
 

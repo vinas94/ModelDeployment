@@ -1,20 +1,17 @@
 import json
 import pickle
-import numpy as np
 import sklearn
+import numpy as np
 from flask import Flask, request, render_template
 from mysql_con import push_to_sql
 
-
+# Create a Flask app object
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
     """ Main page of the app. """
-    # import os
-    # return str(os.listdir())
     return render_template('home.html')
-    # return "Hello! Let me classify your beans!"
 
 @app.route('/predict', methods=['POST'])
 def predict():

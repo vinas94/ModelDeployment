@@ -19,6 +19,9 @@ def predict():
     # Capture the payload
     payload = request.json
     X = np.array(json.loads(payload['data']))
+    store_preds = True
+    if 'store' in payload:
+        store_preds = payload['store']
 
     # Load the classifier
     with open('DryBeanSVM', 'rb') as file:
@@ -28,8 +31,9 @@ def predict():
     predictions = classifier.predict(X)
 
     # Store them in the DB
-    from mysql_con import push_to_sql
-    push_to_sql(predictions)
+    if store_preds:
+        from mysql_con import push_to_sql
+        push_to_sql(predictions)
 
     return {'predictions': json.dumps(predictions.tolist())}
 

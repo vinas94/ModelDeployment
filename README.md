@@ -12,7 +12,14 @@ The example DryBeans classification app which will be discussed in this document
 The following sample request to the API would return a predicted class:
 
 ```
+import requests
 
+payload = {'data': '[[33958.0, 677.1, 253.69, 171.05, 1.48, 0.74, 34241.0, \
+                      207.93, 0.82, 0.99, 0.93, 0.82, 0.01, 0.0, 0.67, 1.0]]'}
+
+response = requests.post('http://`localhost`:5000/predict', json=payload)
+print(json.loads(response.content))
+>> {'predictions': '["DERMASON"]'}
 ```
 
 <br>
@@ -111,6 +118,9 @@ def predict():
     # Capture the payload
     payload = request.json
     X = np.array(json.loads(payload['data']))
+    store_preds = True
+    if 'store' in payload:
+        store_preds = payload['store']
 
     # Load the classifier
     with open('DryBeanSVM', 'rb') as file:
@@ -120,8 +130,9 @@ def predict():
     predictions = classifier.predict(X)
 
     # Store them in the DB
-    from mysql_con import push_to_sql
-    push_to_sql(predictions)
+    if store_preds:
+        from mysql_con import push_to_sql
+        push_to_sql(predictions)
 
     return {'predictions': json.dumps(predictions.tolist())}
 
@@ -132,13 +143,27 @@ if __name__ == '__main__':
 
 It has two access points. One is a root `'/'` access which leads to a home page that returns a static output defined by `/app/templates/home.html`. For the sake of simplicity, the `hello()` function could be changed to return any string and the functionality of the app would stay the same.
 
-The second access point is the `'/predict'` route which expects a json payload containing all 16 features of one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a json string as well as stored in a database (more on this in the next section).
+The second access point is the `'/predict'` route which expects a json payload containing all 16 features of one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a json string as well as stored in a database by default (more on this in the next section).
 
 At this point the app can be launched with
 ```
 python3 app.py
 ```
-and accesed via `http://localhost:5000/`. Keep in mind though that if you tried sending a payload via the `/predict` route it would crash as no database yet exists to store the results.
+and accesed via `http://localhost:5000/`.
+
+Predictions can also be made by sending a payload of features to the `/predict` route. Just make sure to include a `'store': False` flag. Otherwise an error will be raised since no database exists as of yet.
+
+```
+import requests
+
+payload = {'data': '[[33958.0, 677.1, 253.69, 171.05, 1.48, 0.74, 34241.0, \
+                      207.93, 0.82, 0.99, 0.93, 0.82, 0.01, 0.0, 0.67, 1.0]]',
+           'store': False}
+
+response = requests.post('http://localhost:5000/predict', json=payload)
+print(json.loads(response.content))
+>> {'predictions': '["DERMASON"]'}
+```
 
 <br>
 
@@ -246,11 +271,11 @@ should provide you with a list of currently available images among which you sho
 docker run -dp 5000:5000 USERNAME/drybeans-img
 ```
 
-Keep in mind that, as before, the landing page will work, but the app will crash if we tried sending a payload to the `/predict` route as the MySQL connection is still missing. We will fix this in the next step.
+Just as before, though, include a `'store': False` in the payload when making predictions, else it will fail. This will be addressed in the next step.
 
 <br>
 
-### 5. Defining a Docker-Compose file
+### 5. Combining the DryBeans app and a MySQL database in a Docker-Compose file
 
 
 ```
@@ -271,7 +296,7 @@ services:
   mysql:
     image: mysql:5.7
     ports:
-    - 3308:3306
+    - 3306:3306
     volumes:
     - drybeans-vol:/var/lib/sql
     environment:

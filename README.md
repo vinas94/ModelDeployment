@@ -9,7 +9,7 @@ check how i refer to the "app" "model" "classifier" "drybeans" app ect, unify th
 
 The example DryBeans classification app which will be discussed in this document has been deployed on GKE and can be accessed <.here.>.
 
-The following request to the API would return a predicted class:
+The following sample request to the API would return a predicted class:
 
 ```
 
@@ -200,11 +200,17 @@ Database connection is ready. Now we just need to start one.
 
 ### 4. Creating Docker containers
 
-The DryBeans app and the MySQL database now need to be containerised and launched together via Docker-Compose. Luckily, there is no need to manually create a Docker image for the MySQL as one already exists on Docker's repositories and can be pulled directly from there.
+The DryBeans app and the MySQL database now need to be containerised and launched together via Docker-Compose. Luckily, there is no need to manually create a Docker image for the MySQL as one already exists on Docker's repositories and can be pulled directly from there. For the DryBeans app, however, this has to be done manually.
+
+First, we need to collect all the dependancies for the app. This can be easily done by running the following:
 
 ```
 pipreqs .
 ```
+
+This will create a `requirements.txt` file with a list of all imported libraries. This list will later be used to install these libraries when creating a Docker image.
+
+To create the said image, a `Dockerfile` needs to be set which will provide Docker with a list of instructions of what and how should be put together into an image. The following lists the instructions for the DryBeans image:
 
 ```
 # syntax=docker/dockerfile:1
@@ -220,10 +226,27 @@ COPY . .
 CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
 ```
 
+This Dockerfile starts with a base python image from Docker repositories and builds upon it. It first creates a directory for the application and then copies over the `requirements.txt`. The subsequent four `RUN` commands install the requirements and several other dependencies for the MySQL Client. Finally the remaining files are copied. The `CMD` command does not run during image creation, instead it is used when launching the app.
+
+With the Dockerfile ready, the image can finally be built using:
+
 ```
-docker build -t vinas94/drybeans-img .
+docker build -t USERNAME/drybeans-img .
 ```
 
+Typing
+
+```
+docker images
+```
+
+should provide you with a list of currently available images among which you should find the new addition. Now that the image was built, it can be run with:
+
+```
+docker run -dp 5000:5000 USERNAME/drybeans-img
+```
+
+Keep in mind that, as before, the landing page will work, but the app will crash if we tried sending a payload to the `/predict` route as the MySQL connection is still missing. We will fix this in the next step.
 
 <br>
 
@@ -235,7 +258,7 @@ version: '3.7'
 
 services:
   app:
-    image: vinas94/drybeans-img
+    image: USERNAME/drybeans-img
     ports:
     - 5000:5000
     working_dir: /app
@@ -250,7 +273,7 @@ services:
     ports:
     - 3308:3306
     volumes:
-    - drybeans-vol:/var/lib/minesql
+    - drybeans-vol:/var/lib/sql
     environment:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: drybeans_db

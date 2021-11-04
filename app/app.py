@@ -3,7 +3,6 @@ import pickle
 import sklearn
 import numpy as np
 from flask import Flask, request, render_template
-from mysql_con import push_to_sql
 
 # Create a Flask app object
 app = Flask(__name__)
@@ -29,6 +28,7 @@ def predict():
     predictions = classifier.predict(X)
 
     # Store them in the DB
+    from mysql_con import push_to_sql
     push_to_sql(predictions)
 
     return {'predictions': json.dumps(predictions.tolist())}

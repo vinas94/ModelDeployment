@@ -3,6 +3,26 @@
 
 <img src="./flask_docker_k8.png">
 
+```
+check how i refer to the "app" "model" "classifier" "drybeans" app ect, unify the naming
+```
+
+The example DryBeans classification app which will be discussed in this document has been deployed on GKE and can be accessed <.here.>.
+
+The following request to the API would return a predicted class:
+
+```
+
+```
+
+<br>
+
+## Motivation
+
+Machine Learning models need to be accesible in order to be useful. Therefore, Flask comes into play as it creates an API that can be easily accessed. Docker helps storing all the dependancies of the model in an enclosed space (a container) so that the model could be easily shared and run autonomously on any system. Finally, Kubernetes is great at orchestrating large applications with multiple containers and is capable of scaling the computational recources as the demand growths.
+
+Together, these tools make up a very powerful system capable of deploying complex applications.
+
 <br>
 
 ## Contents
@@ -75,7 +95,6 @@ import pickle
 import numpy as np
 import sklearn
 from flask import Flask, request, render_template
-from mysql_con import push_to_sql
 
 # Create a Flask app object
 app = Flask(__name__)
@@ -101,6 +120,7 @@ def predict():
     predictions = classifier.predict(X)
 
     # Store them in the DB
+    from mysql_con import push_to_sql
     push_to_sql(predictions)
 
     return {'predictions': json.dumps(predictions.tolist())}
@@ -113,6 +133,12 @@ if __name__ == '__main__':
 It has two access points. One is a root `'/'` access which leads to a home page that returns a static output defined by `/app/templates/home.html`. For the sake of simplicity, the `hello()` function could be changed to return any string and the functionality of the app would stay the same.
 
 The second access point is the `'/predict'` route which expects a json payload containing all 16 features of one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a json string as well as stored in a database (more on this in the next section).
+
+At this point the app can be launched with
+```
+python3 app.py
+```
+and accesed via `http://localhost:5000/`. Keep in mind though that if you tried sending a payload via the `/predict` route it would crash as no database yet exists to store the results.
 
 <br>
 
@@ -165,11 +191,16 @@ def push_to_sql(array):
     print('Data upload complete!')
 ```
 
+The script first establishes a connection to a MySQL databe using environmental variables from the OS to form a connection string. Then it attempts to create an empty table to store prediction results. This table contains an `id`, `name` (the type) of the bean and `created_at` timestamp.
 
+Finally, it creates a `DryBeansSQL` object which defines the structure of new entries to the table and a `push_to_sql` function which sends these entries over to the database.
+
+Database connection is ready. Now we just need to start one.
 <br>
 
 ### 4. Creating Docker containers
 
+The DryBeans app and the MySQL database now need to be containerised and launched together via Docker-Compose. Luckily, there is no need to manually create a Docker image for the MySQL as one already exists on Docker's repositories and can be pulled directly from there.
 
 ```
 pipreqs .

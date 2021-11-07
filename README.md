@@ -3,7 +3,7 @@
 
 <img src="./flask_docker_k8.png">
 
-The example DryBeans classification app which will be discussed in this document has been deployed on GKE and can be accessed **here**.
+The example DryBeans classification app which will be discussed in this document has been deployed on GKE and can be accessed [here](http://34.118.33.84/).
 
 The following sample request to the API would return a predicted class:
 
@@ -279,7 +279,7 @@ Just as before, though, include a `'store': False` in the payload when making pr
 
 The DryBeans app and the MySQL database can be launched separately. However, since they are both parts of essentially the same application it makes sense to launch them together via Docker Compose. This approach also ensures that both containers are on the same network and can talk to one another.
 
-The `docker-compose` file below defines two services. The DryBeans app which uses the same image we just created and the MySQL database which is pulled directly from Docker repositories. Both of these services also have several environmental variables defined in order to establish the database connection.
+The `docker-compose` file below defines two services. The DryBeans app, which uses the same image we just created and the MySQL database which is pulled directly from Docker repositories. Both of these services also have several environmental variables defined in order to establish the database connection.
 
 ```
 version: '3.7'
@@ -313,9 +313,9 @@ volumes:
 
 <br>
 
-### 6. Launching the app
+### 6. Launching the app locally
 
-Finally, with everything ready, the DryBeans classification app together with a MySQL database which stores the predictions can be launched with a single command:
+Finally, with everything ready, the DryBeans classification app together with a MySQL database that stores the predictions can be launched with a single command:
 
 ```
 docker-compose up
@@ -345,11 +345,13 @@ print(json.loads(response.content))
 
 The contents of the database will persist even if it is shut down. This is taken care of by assigning volume space in the `docker-compose` file.
 
-
+<br>
 
 ## Deploying on Kubernetes
 
 The official [GKE tutorial](https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app) for launching dockerised applications covers the process in great detail. Here I will summarise the key steps and focus mostly on part of the process where it is different - namely using a `docker-compose` file with two services instead of simply launching a single image as is in the tutorial.
+
+<br>
 
 ### 7. Enabling GKE and Artifact Registry on Google Cloud Platform
 
@@ -367,6 +369,8 @@ gcloud artifacts repositories create drybeans-repo \
    --location=europe \
    --description="Docker repository"
 ```
+
+<br>
 
 ### 8. Uploading the app and its dependencies to the Artifact Registry
 
@@ -388,6 +392,8 @@ gcloud auth configure-docker europe-docker.pkg.dev
 docker push europe-docker.pkg.dev/drybeans/drybeans-repo/drybeans-app:v1
 ```
 
+<br>
+
 ### 9. Creating a GKE cluster
 
 Next on the list is to create a GKE cluster where the images will run:
@@ -398,6 +404,7 @@ gcloud config set compute/region europe-central2
 gcloud container clusters create-auto drybeans-cluster
 ```
 
+<br>
 
 ### 10. Converting Docker Compose file to Kubernetes Resources
 
@@ -414,24 +421,48 @@ Update the drybeans image path to `europe-docker.pkg.dev/drybeans/drybeans-repo/
 
 ```
 curl -L https://github.com/kubernetes/kompose/releases/download/v1.24.0/kompose-linux-amd64 -o kompose
+
 chmod +x kompose
+
 sudo mv ./kompose /usr/local/bin/kompose
 ```
 
+Finally, the `docker-compose` file can be simply converted using:
 
-gcloud container clusters get-credentials drybeans-cluster --region europe-central2
-
-
+```
 kompose convert
+```
 
+<br>
 
 ### 11. Launching the app
 
+The very last item on the list is to finally launch the application. First, ensure that you are connected to the right GKE cluster:
+
+```
+gcloud container clusters get-credentials drybeans-cluster --region europe-central2
+```
+
+Then the apps can be run using the `.yaml` from `docker-compose` conversion as such:
+
+```
 kubectl apply -f app-service.yaml,mysql-service.yaml,app-deployment.yaml,mysql-deployment.yaml,drybeans-vol-persistentvolumeclaim.yaml
+```
 
-kubectl expose deployment app --name=drybeans-service --type=LoadBalancer --port 80 --target-port 5000
+Both the DryBeans app and the MySQL database should be running now. This can be checked by:
 
+```
 kubectl get service
+```
+
+
+While they are running they cannot yet be accessed from the web. Exposing the app creates an external IP:
+
+```
+kubectl expose deployment app --name=drybeans-service --type=LoadBalancer --port 80 --target-port 5000
+```
+
+Running `kubectl get service` again would show additional service which exposes the app to the web. `EXTERNAL-IP` is the one to use. If it says `<pending>` just refresh a few times until an IP address is assigned.
 
 
 

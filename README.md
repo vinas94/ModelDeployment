@@ -39,14 +39,14 @@ The project is split into two key parts - (1) local development which sets up th
 - Creating a Flask app with the said model
 - Connecting a MySQL database to store the results
 - Packaging both the Flask app and the MySQL instance into Docker containers
-- Combining both containers via Docker-Compose
+- Combining both containers via Docker Compose
 - Running these containers locally
 
 At this stage, we have a working app. Next up is to host it somewhere so that it can be accessed from anywhere at all times. For such a simple app, Kubernetes is more than overkill, better alternatives exist. However, this walkthrough is not about being pragmatic, so it will continue by:
 
 - Enabling GKE and Artifact Registry on Google Cloud Platform
 - Uploading the app and its dependencies to the Artifact Registry
-- Converting Docker-Compose file to Kubernetes Resources
+- Converting Docker Compose file to Kubernetes Resources
 - Launching the app
 
 <br>
@@ -224,7 +224,7 @@ Finally, it creates a `DryBeansSQL` object which defines the structure of new en
 
 ### 4. Creating Docker containers
 
-The DryBeans app and the MySQL database now need to be containerised and launched together via Docker-Compose. Luckily, there is no need to manually create a Docker image for MySQL instance as one already exists on Docker's repositories and can be pulled directly from there. For the DryBeans app, however, this has to be done manually.
+The DryBeans app and the MySQL database now need to be containerised and launched together via Docker Compose. Luckily, there is no need to manually create a Docker image for MySQL instance as one already exists on Docker's repositories and can be pulled directly from there. For the DryBeans app, however, this has to be done manually.
 
 First, we need to collect all the dependencies for the app. It can be easily done by running the following:
 
@@ -274,11 +274,11 @@ Just as before, though, include a `'store': False` in the payload when making pr
 
 <br>
 
-### 5. Combining the DryBeans app and a MySQL database in a Docker-Compose file
+### 5. Combining the DryBeans app and a MySQL database in a `docker-compose` file
 
-The DryBeans app and the MySQL database can be launched separately. However, since they are both parts of essentially the same application it makes sense to launch them together via `docker-compose`. This approach also ensures that both containers are on the same network and can talk to one another.
+The DryBeans app and the MySQL database can be launched separately. However, since they are both parts of essentially the same application it makes sense to launch them together via Docker Compose. This approach also ensures that both containers are on the same network and can talk to one another.
 
-The `docker-compose` below defines two services. The DryBeans app which uses the same image we just created and the MySQL database which is pulled directly from Docker repositories. Both of these services also have several environmental variables defined in order to establish the database connection.
+The `docker-compose` file below defines two services. The DryBeans app which uses the same image we just created and the MySQL database which is pulled directly from Docker repositories. Both of these services also have several environmental variables defined in order to establish the database connection.
 
 ```
 version: '3.7'
@@ -343,6 +343,78 @@ print(json.loads(response.content))
 <img src="./db_screen.png">
 
 The contents of the database will persist even if it is shut down. This is taken care of by assigning volume space in the `docker-compose` file.
+
+
+
+## Deploying on Kubernetes
+
+The official [GKE tutorial](https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app) for launching dockerised applications covers the process in great detail. Here I will summarise the key steps and focus mostly on part of the process where it is different - namely using a `docker-compose` file with two services instead of simply launching a single image as is in the tutorial.
+
+### 7. Enabling GKE and Artifact Registry on Google Cloud Platform
+
+The first few steps are exactly the same. Make sure you have created a Google Cloud project and have Artifact Registry and Google Kubernetes Engine APIs enabled.
+
+With that covered, a project needs to be set up and an Artifacts repository allocated to it:
+
+```
+export PROJECT_ID=drybeans
+
+gcloud config set project $PROJECT_ID
+
+gcloud artifacts repositories create drybeans-repo \
+   --repository-format=docker \
+   --location=europe \
+   --description="Docker repository"
+```
+
+### 8. Uploading the app and its dependencies to the Artifact Registry
+
+Once 
+
+
+```
+
+git clone https://github.com/vinas94/ModelDeployment.git
+
+cd ModelDeployment/app/
+
+docker build -t europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1 .
+
+
+gcloud auth configure-docker europe-docker.pkg.dev
+
+docker push europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1
+
+
+gcloud config set compute/region europe-central2
+
+gcloud container clusters create-auto drybeans-cluster
+
+gcloud container clusters get-credentials drybeans-cluster --region europe-central2
+```
+
+
+
+### 9. Converting Docker Compose file to Kubernetes Resources
+
+change the drybeans image path in docker-compose to europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1
+
+curl -L https://github.com/kubernetes/kompose/releases/download/v1.24.0/kompose-linux-amd64 -o kompose
+chmod +x kompose
+sudo mv ./kompose /usr/local/bin/kompose
+
+
+kompose convert
+kubectl apply -f app-service.yaml,mysql-service.yaml,app-deployment.yaml,mysql-deployment.yaml,drybeans-vol-persistentvolumeclaim.yaml
+
+### 10. Launching the app
+
+kubectl expose deployment app --name=drybeans-service --type=LoadBalancer --port 80 --target-port 5000
+
+
+
+
+
 
 
 

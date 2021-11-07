@@ -11,7 +11,7 @@ The following sample request to the API would return a predicted class:
 import json
 import requests
 
-url = 'http://localhost:5000/predict'
+url = 'http://34.118.33.84/predict'
 payload = {'data': '[[33958.0, 677.1, 253.69, 171.05, 1.48, 0.74, 34241.0, \
                       207.93, 0.82, 0.99, 0.93, 0.82, 0.01, 0.0, 0.67, 1.0]]'}
 
@@ -46,6 +46,7 @@ At this stage, we have a working app. Next up is to host it somewhere so that it
 
 - Enabling GKE and Artifact Registry on Google Cloud Platform
 - Uploading the app and its dependencies to the Artifact Registry
+- Creating a GKE cluster
 - Converting Docker Compose file to Kubernetes Resources
 - Launching the app
 
@@ -369,47 +370,68 @@ gcloud artifacts repositories create drybeans-repo \
 
 ### 8. Uploading the app and its dependencies to the Artifact Registry
 
-Once 
-
+Once the artifact repository is created it can be populated with the docker image of the DryBeans app. To do so, let's first clone the git repository and build the image:
 
 ```
-
 git clone https://github.com/vinas94/ModelDeployment.git
 
 cd ModelDeployment/app/
 
 docker build -t europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1 .
+```
 
+With the image created it can be pushed to the Artifact Registry as so:
 
+```
 gcloud auth configure-docker europe-docker.pkg.dev
 
-docker push europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1
+docker push europe-docker.pkg.dev/drybeans/drybeans-repo/drybeans-app:v1
+```
 
+### 9. Creating a GKE cluster
 
+Next on the list is to create a GKE cluster where the images will run:
+
+```
 gcloud config set compute/region europe-central2
 
 gcloud container clusters create-auto drybeans-cluster
-
-gcloud container clusters get-credentials drybeans-cluster --region europe-central2
 ```
 
 
+### 10. Converting Docker Compose file to Kubernetes Resources
 
-### 9. Converting Docker Compose file to Kubernetes Resources
+This is where we deviate significantly from the official tutorial from GCP. There a single image is launched directly. However, we want to use a `docker-compose` file to launch several connected services at once. To do so, the `docker-compose` file needs to be converted to a format that can be read by `kubectl`.
 
-change the drybeans image path in docker-compose to europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1
+Before we begin with the conversion it is important to modify the `docker-compose` file and update the path to the DryBean app image.
 
+```
+nano docker-compose.yml
+```
+
+Update the drybeans image path to `europe-docker.pkg.dev/drybeans/drybeans-repo/drybeans-app:v1`
+
+
+```
 curl -L https://github.com/kubernetes/kompose/releases/download/v1.24.0/kompose-linux-amd64 -o kompose
 chmod +x kompose
 sudo mv ./kompose /usr/local/bin/kompose
+```
+
+
+gcloud container clusters get-credentials drybeans-cluster --region europe-central2
 
 
 kompose convert
+
+
+### 11. Launching the app
+
 kubectl apply -f app-service.yaml,mysql-service.yaml,app-deployment.yaml,mysql-deployment.yaml,drybeans-vol-persistentvolumeclaim.yaml
 
-### 10. Launching the app
-
 kubectl expose deployment app --name=drybeans-service --type=LoadBalancer --port 80 --target-port 5000
+
+kubectl get service
 
 
 

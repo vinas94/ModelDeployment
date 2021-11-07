@@ -8,6 +8,7 @@ The example DryBeans classification app which will be discussed in this document
 The following sample request to the API would return a predicted class:
 
 ```
+import json
 import requests
 
 url = 'http://localhost:5000/predict'
@@ -151,6 +152,7 @@ and accessed via `http://localhost:5000/`.
 Predictions can also be made by sending a payload of features to the `/predict` route. Just make sure to include a `'store': False` flag. Otherwise, an error will be raised since no database exists as of yet.
 
 ```
+import json
 import requests
 
 payload = {'data': '[[33958.0, 677.1, 253.69, 171.05, 1.48, 0.74, 34241.0, \
@@ -178,10 +180,11 @@ from sqlalchemy.sql import func
 
 # Create the MySQL connection string
 # These environment variables will be passed to the system during container startup
-db_string = f"mysql://{os.environ['MYSQL_USER']}: \
-                      {os.environ['MYSQL_PASSWORD']}@ \
-                      {os.environ['MYSQL_HOST']}:3306/ \
-                      {os.environ['MYSQL_DB']}"
+db_string = f"mysql://\
+{os.environ['MYSQL_USER']}:\
+{os.environ['MYSQL_PASSWORD']}@\
+{os.environ['MYSQL_HOST']}:3306/\
+{os.environ['MYSQL_DB']}"
 
 # Establish the connection
 db = create_engine(db_string)
@@ -273,8 +276,9 @@ Just as before, though, include a `'store': False` in the payload when making pr
 
 ### 5. Combining the DryBeans app and a MySQL database in a Docker-Compose file
 
-The DryBeans app and the MySQL database can be launched separately. However, since they are both parts of essentially the same service it makes sense to launch them together via Docker-Compose. This approach also ensures that both containers are on the same network and can talk to one another.
+The DryBeans app and the MySQL database can be launched separately. However, since they are both parts of essentially the same application it makes sense to launch them together via `docker-compose`. This approach also ensures that both containers are on the same network and can talk to one another.
 
+The `docker-compose` below defines two services. The DryBeans app which uses the same image we just created and the MySQL database which is pulled directly from Docker repositories. Both of these services also have several environmental variables defined in order to establish the database connection.
 
 ```
 version: '3.7'
@@ -310,8 +314,35 @@ volumes:
 
 ### 6. Launching the app
 
+Finally, with everything ready, the DryBeans classification app together with a MySQL database which stores the predictions can be launched with a single command:
 
 ```
 docker-compose up
 ```
+
+Both running containers should appear under:
+
+```
+docker ps
+```
+
+Payloads can now be sent to the API and results will be stored in the database:
+
+```
+import json
+import requests
+
+payload = {'data': '[[33958.0, 677.1, 253.69, 171.05, 1.48, 0.74, 34241.0, \
+                      207.93, 0.82, 0.99, 0.93, 0.82, 0.01, 0.0, 0.67, 1.0]]'}
+
+response = requests.post('http://localhost:5000/predict', json=payload)
+print(json.loads(response.content))
+>> {'predictions': '["DERMASON"]'}
+```
+
+<img src="./db_screen.png">
+
+The contents of the database will persist even if it is shut down. This is taken care of by assigning volume space in the `docker-compose` file.
+
+
 

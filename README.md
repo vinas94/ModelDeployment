@@ -58,7 +58,6 @@ At this stage, we have a working app. Next up is to host it somewhere so that it
 For the purposes of this walkthrough, a simple classification model will be built using the scikit-learn library. [The Dry Beans dataset](https://archive.ics.uci.edu/ml/datasets/Dry+Bean+Dataset) from the UCI repository will be used for training the model. The dataset consists of a single target feature (one of seven dry bean types) and 16 numerical feature variables defining bean characteristics such as size, shape and roundness. There are in total 13611 observations. A Support Vector Classifier will be used to classify these beans as it is quick to fit and often gives good results out of the box.
 
 ```
-import pickle
 import pandas as pd
 import numpy as np
 from sklearn.svm import SVC
@@ -85,6 +84,8 @@ print(f'Prediction accuracy on test data: {"%.3f"%accuracy}')
 The fitted model provides a 92% accuracy on the test data. However, it is hard to say if this is a good result in absence of a baseline or without knowing more about the dataset. For our purposes though, this will do, therefore it is time to store the model in a file as such:
 
 ```
+import pickle
+
 with open('./app/DryBeanSVM', 'wb') as file:
     pickle.dump(svm, file)
 ```
@@ -142,7 +143,7 @@ if __name__ == '__main__':
 
 It has two access points. One is a root `'/'` access which leads to a home page that returns a static output defined by `/app/templates/home.html`. For the sake of simplicity, the `hello()` function could be changed to return any string and the functionality of the app would stay the same.
 
-The second access point is the `'/predict'` route which leads to the model itself. It expects a JSON payload containing all 16 features of one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a JSON string as well as stored in a database by default (more on this in the next section).
+The second access point is the `'/predict'` route which leads to the model itself. It expects a JSON payload containing all 16 features for one or more beans. The payload is parsed and sent to the model which itself is loaded from a pickle file created earlier. Predictions are then returned as a JSON string as well as stored in a database by default (more on this in the next section).
 
 At this point, the app can be launched with
 ```
@@ -227,7 +228,7 @@ Finally, it creates a `DryBeansSQL` object which defines the structure of new en
 
 The DryBeans app and the MySQL database now need to be containerised and launched together via Docker Compose. Luckily, there is no need to manually create a Docker image for MySQL instance as one already exists on Docker's repositories and can be pulled directly from there. For the DryBeans app, however, this has to be done manually.
 
-First, we need to collect all the dependencies for the app. It can be easily done by running the following:
+First, we need to collect all the dependencies for the app. This can be easily done by running the following:
 
 ```
 pipreqs .
@@ -256,7 +257,7 @@ This Dockerfile starts with a base python image from Docker repositories and bui
 With the Dockerfile ready, the image can finally be built using:
 
 ```
-docker build -t <REPO_NAME>/drybeans-img .
+docker build -t drybeans-repo/drybeans-img .
 ```
 
 Typing
@@ -268,7 +269,7 @@ docker images
 should provide you with a list of currently available images among which you should find the new addition. Now that the image was built, it can be run with:
 
 ```
-docker run -dp 5000:5000 <REPO_NAME>/drybeans-img
+docker run -dp 5000:5000 drybeans-repo/drybeans-img
 ```
 
 Just as before, though, include a `'store': False` in the payload when making predictions, else it will fail. This will be addressed in the next step.
@@ -389,7 +390,7 @@ With the image created it can be pushed to the Artifact Registry as so:
 ```
 gcloud auth configure-docker europe-docker.pkg.dev
 
-docker push europe-docker.pkg.dev/drybeans/drybeans-repo/drybeans-app:v1
+docker push europe-docker.pkg.dev/${PROJECT_ID}/drybeans-repo/drybeans-app:v1
 ```
 
 <br>
@@ -404,13 +405,15 @@ gcloud config set compute/region europe-central2
 gcloud container clusters create-auto drybeans-cluster
 ```
 
+As I am in Europe I use a `europe-central` region. Pick the one closest to you.
+
 <br>
 
 ### 10. Converting Docker Compose file to Kubernetes Resources
 
-This is where we deviate significantly from the official tutorial from GCP. There a single image is launched directly. However, we want to use a `docker-compose` file to launch several connected services at once. To do so, the `docker-compose` file needs to be converted to a format that can be read by `kubectl`.
+This is where we deviate significantly from the official tutorial from GCP where a single image is launched directly. We, instead, want to use a `docker-compose` file to launch several connected services at once. To do so, the `docker-compose` file needs to be converted to a format that can be read by `kubectl`.
 
-Before we begin with the conversion it is important to modify the `docker-compose` file and update the path to the DryBean app image.
+Before we begin with the conversion it is important to modify the `docker-compose` file and update the path to the DryBean app image to the one from the Artifacts Registry that was pushed earlier.
 
 ```
 nano docker-compose.yml
@@ -433,6 +436,8 @@ Finally, the `docker-compose` file can be simply converted using:
 kompose convert
 ```
 
+This has created 5 separate `.yaml` files that together contain all of the instructions to launch both apps.
+
 <br>
 
 ### 11. Launching the app
@@ -443,7 +448,7 @@ The very last item on the list is to finally launch the application. First, ensu
 gcloud container clusters get-credentials drybeans-cluster --region europe-central2
 ```
 
-Then the apps can be run using the `.yaml` from `docker-compose` conversion as such:
+Then the apps can be run using the `.yaml` files from `docker-compose` conversion as such:
 
 ```
 kubectl apply -f app-service.yaml,mysql-service.yaml,app-deployment.yaml,mysql-deployment.yaml,drybeans-vol-persistentvolumeclaim.yaml
@@ -463,6 +468,8 @@ kubectl expose deployment app --name=drybeans-service --type=LoadBalancer --port
 ```
 
 Running `kubectl get service` again would show additional service which exposes the app to the web. `EXTERNAL-IP` is the one to use. If it says `<pending>` just refresh a few times until an IP address is assigned.
+
+Congratulations, the app has been deployed!
 
 
 
